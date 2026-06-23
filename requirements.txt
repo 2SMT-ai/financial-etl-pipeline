@@ -1,0 +1,18 @@
+# Extraction
+yfinance==0.2.40
+
+# Transformation
+pandas==2.2.2
+numpy==1.26.4
+
+# Base de données
+psycopg2-binary==2.9.9
+sqlalchemy==2.0.30
+
+# Dashboard
+dash==2.17.1
+plotly==5.22.0
+
+# Utilitaires
+python-dotenv==1.0.1
+pendulum==3.0.0

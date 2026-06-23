@@ -1,0 +1,72 @@
+version: '3.8'
+
+x-airflow-common: &airflow-common
+  image: apache/airflow:2.9.1
+  env_file: .env
+  environment:
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/${POSTGRES_DB}
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - ./etl:/opt/airflow/etl
+    - ./logs:/opt/airflow/logs
+    - ./plugins:/opt/airflow/plugins
+    - ./requirements.txt:/requirements.txt
+  depends_on:
+    postgres:
+      condition: service_healthy
+  user: "${AIRFLOW_UID:-50000}:0"
+
+services:
+
+  postgres:
+    image: postgres:15
+    env_file: .env
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER}", "-d", "${POSTGRES_DB}"]
+      interval: 10s
+      retries: 5
+
+  airflow-init:
+    <<: *airflow-common
+    command: >
+      bash -c "pip install -r /requirements.txt &&
+               airflow db init &&
+               airflow users create --username admin --password admin123
+               --firstname Admin --lastname User --role Admin
+               --email admin@financial-etl.com"
+    restart: on-failure
+
+  airflow-webserver:
+    <<: *airflow-common
+    command: bash -c "pip install -r /requirements.txt && airflow webserver"
+    ports:
+      - "8080:8080"
+    restart: always
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: bash -c "pip install -r /requirements.txt && airflow scheduler"
+    restart: always
+
+  dashboard:
+    image: python:3.11-slim
+    working_dir: /app
+    volumes:
+      - ./dashboard:/app
+      - ./requirements.txt:/requirements.txt
+    command: bash -c "pip install -r /requirements.txt && python app.py"
+    ports:
+      - "8050:8050"
+    env_file: .env
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_data:

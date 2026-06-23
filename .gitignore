@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Variables d'environnement (CRITIQUE)
+.env
+*.env.local
+
+# Airflow
+logs/
+airflow.db
+airflow.cfg
+
+# PostgreSQL data
+postgres_data/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Docker
+*.log

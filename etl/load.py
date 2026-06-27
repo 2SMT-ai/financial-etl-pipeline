@@ -15,15 +15,22 @@ logger = logging.getLogger(__name__)
 
 
 def get_connection_string() -> str:
-    """Construit la chaîne de connexion PostgreSQL depuis les variables d'environnement."""
+    """Construit la chaîne de connexion PostgreSQL."""
     user     = os.getenv("POSTGRES_USER", "etl_user")
     password = os.getenv("POSTGRES_PASSWORD", "etl_password")
-    host     = os.getenv("POSTGRES_HOST", "localhost")
-    port     = os.getenv("POSTGRES_PORT", "5432")
     db       = os.getenv("POSTGRES_DB", "financial_db")
-    
-    return f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{db}"
+    port     = os.getenv("POSTGRES_PORT", "5432")
 
+    # Dans Docker → utiliser le nom du service
+    # En local → utiliser localhost
+    host = os.getenv("POSTGRES_HOST", "localhost")
+
+    # Détection automatique Docker
+    if os.path.exists("/.dockerenv"):
+        host = "postgres"
+        port = "5432"
+
+    return f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{db}"
 
 def get_engine():
     """Crée et retourne un moteur SQLAlchemy."""
@@ -74,7 +81,7 @@ def load_raw_data(df: pd.DataFrame, engine) -> int:
                     "volume": row["volume"],
                 })
                 inserted += 1
-            conn.commit()
+            conn.execute(text("COMMIT"))
 
         logger.info(f"✅ {inserted} lignes chargées dans raw_stock_data")
         return inserted
@@ -125,7 +132,7 @@ def load_transformed_data(df: pd.DataFrame, engine) -> int:
                     "volatility_30": None if pd.isna(row["volatility_30"])else row["volatility_30"],
                 })
                 inserted += 1
-            conn.commit()
+            conn.execute(text("COMMIT"))
 
         logger.info(f"✅ {inserted} lignes chargées dans transformed_stock_data")
         return inserted

@@ -13,40 +13,51 @@ logger = logging.getLogger(__name__)
 
 def extract_stock_data(ticker: str, period: str = "2y") -> pd.DataFrame:
     """
-    Extrait les données historiques d'une action depuis Yahoo Finance.
-
-    Args:
-        ticker: Symbole boursier (ex: 'GOOGL')
-        period: Période d'historique (ex: '2y', '1y', '6mo')
-
-    Returns:
-        DataFrame avec les colonnes OHLCV
+    Extrait les données historiques d'une action.
+    Priorité : fichier CSV local → Yahoo Finance
     """
     logger.info(f"📥 Extraction des données pour {ticker} sur {period}...")
 
     try:
-        stock = yf.Ticker(ticker)
+        # Mode Docker — lire depuis CSV si disponible
+        import os
+        csv_path = f"/opt/airflow/data/{ticker}_raw.csv"
+        local_csv = f"data/{ticker}_raw.csv"
+
+        if os.path.exists(csv_path):
+            logger.info(f"📂 Lecture depuis CSV Docker : {csv_path}")
+            df = pd.read_csv(csv_path)
+            df["date"] = pd.to_datetime(df["date"]).dt.date
+            logger.info(f"✅ {len(df)} lignes lues depuis CSV")
+            return df
+
+        elif os.path.exists(local_csv):
+            logger.info(f"📂 Lecture depuis CSV local : {local_csv}")
+            df = pd.read_csv(local_csv)
+            df["date"] = pd.to_datetime(df["date"]).dt.date
+            logger.info(f"✅ {len(df)} lignes lues depuis CSV")
+            return df
+
+        # Fallback — Yahoo Finance
+        import requests
+        session = requests.Session()
+        session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        })
+        stock = yf.Ticker(ticker, session=session)
         df = stock.history(period=period)
 
         if df.empty:
             raise ValueError(f"Aucune donnée retournée pour {ticker}")
 
-        # Nettoyage de base
         df = df.reset_index()
         df.columns = [col.lower() for col in df.columns]
-
-        # Garder uniquement les colonnes utiles
         df = df[["date", "open", "high", "low", "close", "volume"]]
-
-        # Nettoyer la colonne date (supprimer timezone)
         df["date"] = pd.to_datetime(df["date"]).dt.date
-
-        # Ajouter le ticker
         df.insert(0, "ticker", ticker)
 
         logger.info(f"✅ {len(df)} lignes extraites pour {ticker}")
         logger.info(f"📅 Période : {df['date'].min()} → {df['date'].max()}")
-
         return df
 
     except Exception as e:

@@ -11,6 +11,7 @@ x-airflow-common: &airflow-common
     - ./etl:/opt/airflow/etl
     - ./logs:/opt/airflow/logs
     - ./plugins:/opt/airflow/plugins
+    - ./data:/opt/airflow/data          # ← ajouter
     - ./requirements-airflow.txt:/requirements.txt
   depends_on:
     postgres:
